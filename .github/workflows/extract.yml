@@ -1,0 +1,62 @@
+name: Instagram Superpack Extractor
+
+on:
+  workflow_dispatch:
+
+jobs:
+  extract:
+    runs-on: macos-14
+    timeout-minutes: 60
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Accept licenses
+      run: yes | sdkmanager --licenses || true
+      
+    - name: Install SDK components
+      run: |
+        sdkmanager "platform-tools" "platforms;android-34" "emulator"
+        sdkmanager "system-images;android-34;google_apis;arm64-v8a"
+        
+    - name: Create AVD
+      run: |
+        echo "no" | avdmanager create avd -n test_avd -k "system-images;android-34;google_apis;arm64-v8a" --device "pixel_6"
+        
+    - name: Start Emulator
+      run: |
+        $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu host &
+        adb wait-for-device
+        while [ "$(adb shell getprop sys.boot_completed 2>/dev/null)" != "1" ]; do
+          sleep 5
+        done
+        
+    - name: Install Instagram
+      run: |
+        adb root
+        adb install -g Instagram.apk
+        
+    - name: Launch and Extract
+      run: |
+        adb shell am start -n com.instagram.android/.activity.MainTabActivity
+        sleep 180
+        mkdir -p extracted
+        adb pull /data/data/com.instagram.android/lib/ extracted/ || true
+        adb pull /data/data/com.instagram.android/files/ extracted/ || true
+        ls -laR extracted/
+        
+    - name: Upload Libraries
+      uses: actions/upload-artifact@v4
+      with:
+        name: instagram-libraries
+        path: extracted/
