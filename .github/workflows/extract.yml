@@ -12,6 +12,11 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
       
+    - name: Download Instagram APK from Release
+      run: |
+        curl -L -o Instagram.apk "https://github.com/Result2025/instagram-superpack-extractor/releases/download/v1.0/Instagram.apk"
+        ls -lh Instagram.apk
+      
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
