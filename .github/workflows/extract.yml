@@ -40,11 +40,24 @@ jobs:
         
     - name: Start Emulator
       run: |
-        $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu host &
-        adb wait-for-device
+        # Use software rendering to avoid Vulkan memory allocation issues
+        $ANDROID_HOME/emulator/emulator -avd test_avd -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot -memory 4096 &
+        
+        # Wait for device with timeout
+        timeout 300 adb wait-for-device || (echo "Emulator failed to start" && exit 1)
+        
+        # Wait for boot with timeout
+        BOOT_TIMEOUT=300
+        WAITED=0
         while [ "$(adb shell getprop sys.boot_completed 2>/dev/null)" != "1" ]; do
           sleep 5
+          WAITED=$((WAITED + 5))
+          if [ $WAITED -ge $BOOT_TIMEOUT ]; then
+            echo "Boot timeout after ${BOOT_TIMEOUT}s"
+            exit 1
+          fi
         done
+        echo "Emulator booted successfully"
         
     - name: Install Instagram
       run: |
